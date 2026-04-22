@@ -394,7 +394,7 @@ Execute QA checklist from kickoff doc:
 
 | Task | Status | Assignee |
 |-----|--------|----------|
-| TASK-001 | ⬜ TODO | Thomas |
+| TASK-001 | ✅ DONE | Thomas |
 | TASK-002 | ⬜ TODO | Thomas |
 | TASK-003 | ⬜ TODO | Thomas |
 | TASK-004 | ⬜ TODO | Thomas |
