@@ -68,6 +68,20 @@ jobs:
         run: |
           flake8 src/ tests/ --max-line-length=100 || true
 
+      - name: Notify Discord on failure
+        if: failure()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"content": "❌ **Lint failed** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
+
+      - name: Notify Discord on success
+        if: success()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"content": "✅ **Lint passed** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
+
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
@@ -90,6 +104,20 @@ jobs:
           sleep 5
           docker logs test-bot
           docker stop test-bot
+
+      - name: Notify Discord on failure
+        if: failure()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"content": "❌ **Build failed** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
+
+      - name: Notify Discord on success
+        if: success()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"content": "✅ **Build passed** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
 
   deploy:
     name: Deploy to VPS
@@ -122,3 +150,17 @@ jobs:
             docker-compose pull
             docker-compose up -d
             docker image prune -f
+
+      - name: Notify Discord on failure
+        if: failure()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"content": "❌ **Deploy failed** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
+
+      - name: Notify Discord on success
+        if: success()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"content": "🚀 **Deployed successfully** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
