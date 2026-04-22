@@ -1,4 +1,5 @@
 """Alert engine for evaluating and sending alerts."""
+
 import asyncio
 import logging
 from datetime import datetime
@@ -19,7 +20,9 @@ class AlertEngine:
         """Initialize alert engine with optional bot reference."""
         self.bot = bot
 
-    async def evaluate_event(self, event_type: str, payload: dict[str, Any]) -> list[int]:
+    async def evaluate_event(
+        self, event_type: str, payload: dict[str, Any]
+    ) -> list[int]:
         """Evaluate event-based rules and return list of triggered rule_ids."""
         triggered = []
 

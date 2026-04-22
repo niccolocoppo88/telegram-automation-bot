@@ -1,6 +1,7 @@
 """
 Test configuration and fixtures for Telegram Automation Bot tests.
 """
+
 import os
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -20,11 +21,9 @@ def mock_bot():
     bot.send_message = AsyncMock(return_value=MagicMock(message_id=123))
     bot.edit_message_text = AsyncMock(return_value=MagicMock())
     bot.delete_message = AsyncMock(return_value=MagicMock())
-    bot.get_me = AsyncMock(return_value=MagicMock(
-        id=123456,
-        username="test_bot",
-        first_name="Test Bot"
-    ))
+    bot.get_me = AsyncMock(
+        return_value=MagicMock(id=123456, username="test_bot", first_name="Test Bot")
+    )
     return bot
 
 
@@ -33,17 +32,11 @@ def mock_update():
     """Mock telegram.Update"""
     update = MagicMock()
     update.effective_user = MagicMock(
-        id=12345,
-        username="testuser",
-        first_name="Test",
-        last_name="User"
+        id=12345, username="testuser", first_name="Test", last_name="User"
     )
     update.effective_chat = MagicMock(id=67890)
     update.effective_message = MagicMock(
-        message_id=111,
-        chat=MagicMock(id=67890),
-        date=datetime.now(),
-        text="/start"
+        message_id=111, chat=MagicMock(id=67890), date=datetime.now(), text="/start"
     )
     update.callback_query = None
     return update
@@ -78,7 +71,7 @@ def sample_user_data():
         "username": "testuser",
         "is_admin": False,
         "is_active": True,
-        "registered_at": datetime.now()
+        "registered_at": datetime.now(),
     }
 
 
@@ -90,7 +83,7 @@ def sample_admin_data():
         "username": "admin",
         "is_admin": True,
         "is_active": True,
-        "registered_at": datetime.now()
+        "registered_at": datetime.now(),
     }
 
 
@@ -106,7 +99,7 @@ def sample_alert_rule():
         "target_chat_id": 67890,
         "is_enabled": True,
         "created_by": 99999,
-        "created_at": datetime.now()
+        "created_at": datetime.now(),
     }
 
 
@@ -122,7 +115,7 @@ def sample_cron_rule():
         "target_chat_id": 67890,
         "is_enabled": True,
         "created_by": 99999,
-        "created_at": datetime.now()
+        "created_at": datetime.now(),
     }
 
 
@@ -134,15 +127,15 @@ def mock_github_webhook_push():
         "repository": {
             "name": "test-repo",
             "full_name": "test/test-repo",
-            "html_url": "https://github.com/test/test-repo"
+            "html_url": "https://github.com/test/test-repo",
         },
         "commits": [
             {
                 "message": "Test commit",
-                "author": {"name": "Test Author", "email": "test@example.com"}
+                "author": {"name": "Test Author", "email": "test@example.com"},
             }
         ],
-        "pusher": {"name": "testuser"}
+        "pusher": {"name": "testuser"},
     }
 
 
@@ -156,12 +149,9 @@ def mock_github_webhook_pr():
             "title": "Test PR",
             "state": "open",
             "user": {"login": "testuser"},
-            "html_url": "https://github.com/test/test-repo/pull/42"
+            "html_url": "https://github.com/test/test-repo/pull/42",
         },
-        "repository": {
-            "name": "test-repo",
-            "full_name": "test/test-repo"
-        }
+        "repository": {"name": "test-repo", "full_name": "test/test-repo"},
     }
 
 
@@ -175,18 +165,16 @@ def mock_github_webhook_issues():
             "title": "Test Issue",
             "state": "open",
             "user": {"login": "testuser"},
-            "html_url": "https://github.com/test/test-repo/issues/1"
+            "html_url": "https://github.com/test/test-repo/issues/1",
         },
-        "repository": {
-            "name": "test-repo",
-            "full_name": "test/test-repo"
-        }
+        "repository": {"name": "test-repo", "full_name": "test/test-repo"},
     }
 
 
 @pytest.fixture
 def mock_rate_limit_response():
     """Simulate Telegram 429 rate limit response"""
+
     class MockRateLimitError(Exception):
         def __init__(self):
             self.description = "Too Many Requests: retry after 1"
@@ -196,6 +184,7 @@ def mock_rate_limit_response():
 @pytest.fixture
 def mock_telegram_error_500():
     """Simulate Telegram 500 server error"""
+
     class MockServerError(Exception):
         def __init__(self):
             self.description = "Internal Server Error"

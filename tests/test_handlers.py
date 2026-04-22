@@ -1,4 +1,5 @@
 """Tests for Telegram command handlers."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from telegram import Update, User as TGUser, Message, Chat
@@ -72,17 +73,21 @@ async def test_status_command(mock_update, mock_context):
     with patch("src.handlers.session_context") as mock_session_ctx:
         mock_session = AsyncMock()
         # Return values for user stats, rule stats, log stats
-        mock_session.execute = AsyncMock(side_effect=[
-            AsyncMock().return_value,
-            AsyncMock().return_value,
-            AsyncMock().return_value,
-        ])
+        mock_session.execute = AsyncMock(
+            side_effect=[
+                AsyncMock().return_value,
+                AsyncMock().return_value,
+                AsyncMock().return_value,
+            ]
+        )
         mock_result = MagicMock()
-        mock_result.fetchone = MagicMock(side_effect=[
-            (10, 8),  # user stats
-            (5, 4),    # rule stats
-            (100, 2),  # log stats
-        ])
+        mock_result.fetchone = MagicMock(
+            side_effect=[
+                (10, 8),  # user stats
+                (5, 4),  # rule stats
+                (100, 2),  # log stats
+            ]
+        )
         mock_session.execute.return_value = mock_result
 
         mock_session_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_session)

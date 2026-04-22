@@ -1,4 +1,5 @@
 """FastAPI webhooks and API endpoints."""
+
 import asyncio
 import hashlib
 import hmac
@@ -22,6 +23,7 @@ start_time = time.time()
 
 
 # ─── Health & Stats Endpoints ───────────────────────────────────────────────
+
 
 @app.get("/health")
 async def health_check() -> JSONResponse:
@@ -79,6 +81,7 @@ async def get_stats() -> JSONResponse:
 
 # ─── Webhook Endpoints ──────────────────────────────────────────────────────
 
+
 @app.post("/webhook/github")
 async def github_webhook(request: Request) -> JSONResponse:
     """Handle GitHub webhook events."""
@@ -90,11 +93,9 @@ async def github_webhook(request: Request) -> JSONResponse:
         signature = request.headers.get("x-hub-signature-256", "")
         body = await request.body()
 
-        expected = "sha256=" + hmac.new(
-            secret.encode(),
-            body,
-            hashlib.sha256
-        ).hexdigest()
+        expected = (
+            "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        )
 
         if not hmac.compare_digest(signature, expected):
             raise HTTPException(status_code=401, detail="Invalid signature")
@@ -116,6 +117,7 @@ async def github_webhook(request: Request) -> JSONResponse:
 
     # Process each matching rule
     import httpx
+
     for rule in rules:
         # Simple matching - check if event matches trigger_config
         config = rule.get("trigger_config", {})
@@ -150,7 +152,9 @@ async def github_webhook(request: Request) -> JSONResponse:
                         log_status = "sent"
                     else:
                         log_status = "failed"
-                        logger.error(f"Telegram API error: {resp.status_code} - {resp.text}")
+                        logger.error(
+                            f"Telegram API error: {resp.status_code} - {resp.text}"
+                        )
             except Exception as e:
                 log_status = "failed"
                 logger.error(f"Failed to send Telegram message: {e}")
@@ -166,6 +170,7 @@ async def github_webhook(request: Request) -> JSONResponse:
             )
             if log_status == "sent":
                 from datetime import datetime
+
                 log.sent_at = datetime.utcnow()
             session.add(log)
             await session.commit()
@@ -191,7 +196,7 @@ async def alert_webhook(request: Request) -> JSONResponse:
         # Find the alert rule
         result = await session.execute(
             "SELECT * FROM alert_rules WHERE rule_id = :rule_id AND is_enabled = 1",
-            {"rule_id": alert_id}
+            {"rule_id": alert_id},
         )
         row = result.fetchone()
 
@@ -222,6 +227,7 @@ async def alert_webhook(request: Request) -> JSONResponse:
 
 
 # ─── Root ────────────────────────────────────────────────────────────────────
+
 
 @app.get("/")
 async def root() -> JSONResponse:

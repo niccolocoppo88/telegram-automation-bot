@@ -1,8 +1,18 @@
 """SQLAlchemy models for the Telegram Automation Bot."""
+
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -21,7 +31,9 @@ class User(Base):
     last_seen_at = Column(DateTime, nullable=True)
 
     # Relationships
-    alert_rules = relationship("AlertRule", back_populates="creator", foreign_keys="AlertRule.created_by")
+    alert_rules = relationship(
+        "AlertRule", back_populates="creator", foreign_keys="AlertRule.created_by"
+    )
 
     def __repr__(self):
         return f"<User(user_id={self.user_id}, username={self.username}, is_admin={self.is_admin})>"
@@ -43,7 +55,9 @@ class AlertRule(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    creator = relationship("User", back_populates="alert_rules", foreign_keys=[created_by])
+    creator = relationship(
+        "User", back_populates="alert_rules", foreign_keys=[created_by]
+    )
     logs = relationship("AlertLog", back_populates="rule")
 
     def __repr__(self):

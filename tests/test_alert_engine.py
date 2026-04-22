@@ -2,13 +2,16 @@
 Unit tests for Alert Engine.
 Covers: Alert triggering, evaluation, message sending, retry logic
 """
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from datetime import datetime
 
 from tests.conftest import (
-    sample_alert_rule, sample_cron_rule,
-    mock_github_webhook_push, mock_github_webhook_pr
+    sample_alert_rule,
+    sample_cron_rule,
+    mock_github_webhook_push,
+    mock_github_webhook_pr,
 )
 
 
@@ -20,8 +23,12 @@ class TestAlertTriggering:
         """UT-029: Alert triggered when GitHub event matches rule"""
         from src.alert_engine import trigger_alert
 
-        with patch('src.alert_engine.send_telegram_message', new_callable=AsyncMock) as mock_send:
-            with patch('src.alert_engine.create_alert_log', new_callable=AsyncMock) as mock_log:
+        with patch(
+            "src.alert_engine.send_telegram_message", new_callable=AsyncMock
+        ) as mock_send:
+            with patch(
+                "src.alert_engine.create_alert_log", new_callable=AsyncMock
+            ) as mock_log:
                 mock_send.return_value = {"success": True, "message_id": 123}
                 mock_log.return_value = {"log_id": 1}
 
@@ -38,15 +45,19 @@ class TestAlertTriggering:
 
         non_matching_payload = {
             "action": "opened",
-            "repository": {"full_name": "other/repo"}
+            "repository": {"full_name": "other/repo"},
         }
 
-        rules = [{
-            "trigger_type": "event",
-            "trigger_config": {"event": "push", "repo": "test/repo"}
-        }]
+        rules = [
+            {
+                "trigger_type": "event",
+                "trigger_config": {"event": "push", "repo": "test/repo"},
+            }
+        ]
 
-        with patch('src.alert_engine.trigger_alert', new_callable=AsyncMock) as mock_trigger:
+        with patch(
+            "src.alert_engine.trigger_alert", new_callable=AsyncMock
+        ) as mock_trigger:
             await evaluate_event_rules(non_matching_payload)
 
             # No triggers since event doesn't match
@@ -57,25 +68,24 @@ class TestAlertTriggering:
         """IT-014: Two rules match same event → both triggered"""
         from src.alert_engine import evaluate_event_rules
 
-        matching_payload = {
-            "event": "push",
-            "repository": {"full_name": "test/repo"}
-        }
+        matching_payload = {"event": "push", "repository": {"full_name": "test/repo"}}
 
         rules = [
             {
                 "rule_id": 1,
                 "trigger_type": "event",
-                "trigger_config": {"event": "push", "repo": "test/repo"}
+                "trigger_config": {"event": "push", "repo": "test/repo"},
             },
             {
                 "rule_id": 2,
                 "trigger_type": "event",
-                "trigger_config": {"event": "push", "repo": "test/repo"}
-            }
+                "trigger_config": {"event": "push", "repo": "test/repo"},
+            },
         ]
 
-        with patch('src.alert_engine.trigger_alert', new_callable=AsyncMock) as mock_trigger:
+        with patch(
+            "src.alert_engine.trigger_alert", new_callable=AsyncMock
+        ) as mock_trigger:
             mock_trigger.return_value = {"success": True}
 
             await evaluate_event_rules(matching_payload, rules)
@@ -91,8 +101,12 @@ class TestAlertLogging:
         """UT-031: AlertLog status='sent' when send succeeds"""
         from src.alert_engine import trigger_alert
 
-        with patch('src.alert_engine.send_telegram_message', new_callable=AsyncMock) as mock_send:
-            with patch('src.alert_engine.create_alert_log', new_callable=AsyncMock) as mock_log:
+        with patch(
+            "src.alert_engine.send_telegram_message", new_callable=AsyncMock
+        ) as mock_send:
+            with patch(
+                "src.alert_engine.create_alert_log", new_callable=AsyncMock
+            ) as mock_log:
                 mock_send.return_value = {"success": True}
                 mock_log.return_value = {"log_id": 1, "status": "sent"}
 
@@ -106,8 +120,12 @@ class TestAlertLogging:
         """UT-032: AlertLog status='failed' when send fails"""
         from src.alert_engine import trigger_alert
 
-        with patch('src.alert_engine.send_telegram_message', new_callable=AsyncMock) as mock_send:
-            with patch('src.alert_engine.create_alert_log', new_callable=AsyncMock) as mock_log:
+        with patch(
+            "src.alert_engine.send_telegram_message", new_callable=AsyncMock
+        ) as mock_send:
+            with patch(
+                "src.alert_engine.create_alert_log", new_callable=AsyncMock
+            ) as mock_log:
                 mock_send.side_effect = Exception("Telegram error: 500")
                 mock_log.return_value = {"log_id": 1}
 
@@ -126,8 +144,12 @@ class TestCronAlerts:
         """UT-033: Cron rules evaluated on schedule"""
         from src.alert_engine import evaluate_cron_rules
 
-        with patch('src.alert_engine.trigger_alert', new_callable=AsyncMock) as mock_trigger:
-            with patch('src.alert_engine.get_enabled_cron_rules', new_callable=AsyncMock) as mock_get:
+        with patch(
+            "src.alert_engine.trigger_alert", new_callable=AsyncMock
+        ) as mock_trigger:
+            with patch(
+                "src.alert_engine.get_enabled_cron_rules", new_callable=AsyncMock
+            ) as mock_get:
                 mock_get.return_value = [sample_cron_rule]
                 mock_trigger.return_value = {"success": True}
 
@@ -152,8 +174,11 @@ class TestRateLimitHandling:
                 raise Exception("429 Too Many Requests")
             return {"success": True, "message_id": 123}
 
-        with patch('src.alert_engine.send_telegram_message', side_effect=mock_send_with_failures):
-            with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch(
+            "src.alert_engine.send_telegram_message",
+            side_effect=mock_send_with_failures,
+        ):
+            with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 result = await send_with_retry({}, 67890)
 
                 assert result["success"] is True
@@ -167,8 +192,10 @@ class TestRateLimitHandling:
         async def mock_always_fail(*args, **kwargs):
             raise Exception("429 Too Many Requests")
 
-        with patch('src.alert_engine.send_telegram_message', side_effect=mock_always_fail):
-            with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch(
+            "src.alert_engine.send_telegram_message", side_effect=mock_always_fail
+        ):
+            with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 mock_sleep.return_value = None
 
                 result = await send_with_retry({}, 67890, max_retries=3)
@@ -193,8 +220,8 @@ class TestRateLimitHandling:
                 raise Exception("429 Too Many Requests")
             return {"success": True}
 
-        with patch('src.alert_engine.send_telegram_message', side_effect=mock_send):
-            with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("src.alert_engine.send_telegram_message", side_effect=mock_send):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
                 result = await send_broadcast_to_users(users, "Test message")
 
                 # Users 0,1 succeeded, 2 rate-limited, 3,4 queued and retried
@@ -205,16 +232,22 @@ class TestMessageFormat:
     """Tests for alert message formatting"""
 
     @pytest.mark.asyncio
-    async def test_github_push_message_format(self, sample_alert_rule, mock_github_webhook_push):
+    async def test_github_push_message_format(
+        self, sample_alert_rule, mock_github_webhook_push
+    ):
         """GitHub push event formatted correctly"""
         from src.alert_engine import format_alert_message
 
-        message = await format_alert_message(sample_alert_rule, mock_github_webhook_push)
+        message = await format_alert_message(
+            sample_alert_rule, mock_github_webhook_push
+        )
 
         assert "push" in message.lower() or "commit" in message.lower()
 
     @pytest.mark.asyncio
-    async def test_github_pr_message_format(self, sample_alert_rule, mock_github_webhook_pr):
+    async def test_github_pr_message_format(
+        self, sample_alert_rule, mock_github_webhook_pr
+    ):
         """GitHub PR event formatted correctly"""
         from src.alert_engine import format_alert_message
 
@@ -229,12 +262,9 @@ class TestMessageFormat:
 
         rule = {
             "message_template": "Event: {event} on repo {repo}",
-            "trigger_config": {}
+            "trigger_config": {},
         }
-        payload = {
-            "event": "push",
-            "repository": {"full_name": "test/repo"}
-        }
+        payload = {"event": "push", "repository": {"full_name": "test/repo"}}
 
         message = await format_alert_message(rule, payload)
 
@@ -260,8 +290,12 @@ class TestConcurrentAlerts:
         results = []
 
         async def trigger_one(rule):
-            with patch('src.alert_engine.send_telegram_message', new_callable=AsyncMock) as mock_send:
-                with patch('src.alert_engine.create_alert_log', new_callable=AsyncMock) as mock_log:
+            with patch(
+                "src.alert_engine.send_telegram_message", new_callable=AsyncMock
+            ) as mock_send:
+                with patch(
+                    "src.alert_engine.create_alert_log", new_callable=AsyncMock
+                ) as mock_log:
                     mock_send.return_value = {"success": True}
                     mock_log.return_value = {"log_id": rule["rule_id"]}
 
@@ -282,14 +316,16 @@ class TestConcurrentAlerts:
         from src.alert_engine import evaluate_event_rules
 
         matching_payload = {"event": "push", "repository": {"full_name": "test/repo"}}
-        rules = [{"rule_id": 1, "trigger_type": "event", "trigger_config": {"event": "push"}}]
+        rules = [
+            {"rule_id": 1, "trigger_type": "event", "trigger_config": {"event": "push"}}
+        ]
 
         processed = []
 
         async def mock_trigger(rule, payload):
             processed.append(1)
 
-        with patch('src.alert_engine.trigger_alert', side_effect=mock_trigger):
+        with patch("src.alert_engine.trigger_alert", side_effect=mock_trigger):
             tasks = [evaluate_event_rules(matching_payload, rules) for _ in range(10)]
             await asyncio.gather(*tasks)
 
@@ -313,8 +349,10 @@ class TestAlertRetry:
                 raise Exception("Temporary failure")
             return {"success": True, "message_id": 123}
 
-        with patch('src.alert_engine.send_telegram_message', side_effect=failing_then_success):
-            with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch(
+            "src.alert_engine.send_telegram_message", side_effect=failing_then_success
+        ):
+            with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 result = await send_with_retry({}, 67890, max_retries=5)
 
                 assert result["success"] is True
@@ -329,8 +367,8 @@ class TestAlertRetry:
         async def always_fail(*args, **kwargs):
             raise Exception("Persistent failure")
 
-        with patch('src.alert_engine.send_telegram_message', side_effect=always_fail):
-            with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("src.alert_engine.send_telegram_message", side_effect=always_fail):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
                 result = await send_with_retry({}, 67890, max_retries=3)
 
                 assert result["success"] is False
@@ -364,7 +402,7 @@ class TestQueuePersistence:
             order.append(message)
             return {"success": True}
 
-        with patch('src.alert_engine.send_telegram_message', side_effect=mock_send):
+        with patch("src.alert_engine.send_telegram_message", side_effect=mock_send):
             await add_to_queue({"chat_id": 1, "message": "first"})
             await add_to_queue({"chat_id": 1, "message": "second"})
 

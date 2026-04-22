@@ -1,4 +1,5 @@
 """Telegram command handlers."""
+
 import logging
 from typing import Optional
 
@@ -21,8 +22,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     async with session_context() as session:
         # Check if user exists
         result = await session.execute(
-            "SELECT user_id FROM users WHERE user_id = :user_id",
-            {"user_id": user_id}
+            "SELECT user_id FROM users WHERE user_id = :user_id", {"user_id": user_id}
         )
         existing = result.fetchone()
 
@@ -73,7 +73,9 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Handle /status command - show bot statistics."""
     async with session_context() as session:
         # Get user stats
-        result = await session.execute("SELECT COUNT(*) as total, SUM(is_active) as active FROM users")
+        result = await session.execute(
+            "SELECT COUNT(*) as total, SUM(is_active) as active FROM users"
+        )
         user_stats = result.fetchone()
         total_users = user_stats[0] if user_stats else 0
         active_users = user_stats[1] if user_stats[1] else 0
@@ -106,6 +108,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /ping command - latency check."""
     import time
+
     start = time.time()
     # Quick DB ping
     async with session_context() as session:
@@ -124,9 +127,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     if not context.args:
-        await update.message.reply_text(
-            "Usage: /broadcast `<message>`"
-        )
+        await update.message.reply_text("Usage: /broadcast `<message>`")
         return
 
     message = " ".join(context.args)
@@ -151,6 +152,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             sent += 1
             # Simple rate limit mitigation
             import asyncio
+
             await asyncio.sleep(0.05)  # 50ms between messages
         except Exception as e:
             logger.error(f"Failed to send to {uid}: {e}")
@@ -207,7 +209,7 @@ async def alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         if len(context.args) < 4:
             await update.message.reply_text(
                 "Usage: /alert add `<name>` `<trigger_type>` `<target_chat_id>` `<message_template>`\n\n"
-                "Example: /alert add \"My Alert\" event 123456 \"New push to {repo}\"\n\n"
+                'Example: /alert add "My Alert" event 123456 "New push to {repo}"\n\n'
                 "trigger_type: event, cron, or manual"
             )
             return
@@ -258,7 +260,6 @@ async def alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"Edit via API or /alert list to manage"
         )
 
-
     elif action == "delete":
         if len(context.args) < 2:
             await update.message.reply_text("Usage: /alert delete `<rule_id>`")
@@ -271,8 +272,7 @@ async def alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         async with session_context() as session:
             await session.execute(
-                "DELETE FROM alert_rules WHERE rule_id = :rule_id",
-                {"rule_id": rule_id}
+                "DELETE FROM alert_rules WHERE rule_id = :rule_id", {"rule_id": rule_id}
             )
             await session.commit()
 
@@ -292,7 +292,7 @@ async def alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         async with session_context() as session:
             await session.execute(
                 "UPDATE alert_rules SET is_enabled = :state WHERE rule_id = :rule_id",
-                {"state": new_state, "rule_id": rule_id}
+                {"state": new_state, "rule_id": rule_id},
             )
             await session.commit()
 

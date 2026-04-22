@@ -2,6 +2,7 @@
 Unit tests for SQLAlchemy models.
 Covers: User, AlertRule, AlertLog
 """
+
 import pytest
 from datetime import datetime
 from sqlalchemy import create_engine
@@ -32,12 +33,7 @@ class TestUserModel:
 
     def test_user_creation(self, session):
         """UT-035: User model creation with valid data"""
-        user = User(
-            user_id=12345,
-            username="testuser",
-            is_admin=False,
-            is_active=True
-        )
+        user = User(user_id=12345, username="testuser", is_admin=False, is_active=True)
         session.add(user)
         session.commit()
 
@@ -93,7 +89,7 @@ class TestAlertRuleModel:
             trigger_config={"event": "push"},
             message_template="Test alert",
             target_chat_id=67890,
-            created_by=12345
+            created_by=12345,
         )
         session.add(rule)
         session.commit()
@@ -112,7 +108,7 @@ class TestAlertRuleModel:
                 trigger_config={},
                 message_template="Test",
                 target_chat_id=67890,
-                created_by=12345
+                created_by=12345,
             )
             session.add(rule)
             session.commit()
@@ -126,7 +122,7 @@ class TestAlertRuleModel:
             trigger_config={},
             message_template="Test",
             target_chat_id=67890,
-            created_by=12345
+            created_by=12345,
         )
         session.add(rule)
 
@@ -141,7 +137,7 @@ class TestAlertRuleModel:
             trigger_config={"schedule": "0 9 * * *"},
             message_template="Good morning",
             target_chat_id=67890,
-            created_by=12345
+            created_by=12345,
         )
         session.add(rule)
         session.commit()
@@ -157,7 +153,7 @@ class TestAlertRuleModel:
             trigger_config={},
             message_template="Test",
             target_chat_id=67890,
-            created_by=99999  # Non-existent user
+            created_by=99999,  # Non-existent user
         )
         session.add(rule)
 
@@ -177,16 +173,12 @@ class TestAlertLogModel:
             trigger_config={},
             message_template="Test",
             target_chat_id=67890,
-            created_by=12345
+            created_by=12345,
         )
         session.add(rule)
         session.commit()
 
-        log = AlertLog(
-            rule_id=rule.rule_id,
-            status="pending",
-            payload={"test": "data"}
-        )
+        log = AlertLog(rule_id=rule.rule_id, status="pending", payload={"test": "data"})
         session.add(log)
         session.commit()
 
@@ -202,16 +194,12 @@ class TestAlertLogModel:
             trigger_config={},
             message_template="Test",
             target_chat_id=67890,
-            created_by=12345
+            created_by=12345,
         )
         session.add(rule)
         session.commit()
 
-        log = AlertLog(
-            rule_id=rule.rule_id,
-            status="sent",
-            sent_at=datetime.now()
-        )
+        log = AlertLog(rule_id=rule.rule_id, status="sent", sent_at=datetime.now())
         session.add(log)
         session.commit()
 
@@ -227,15 +215,13 @@ class TestAlertLogModel:
             trigger_config={},
             message_template="Test",
             target_chat_id=67890,
-            created_by=12345
+            created_by=12345,
         )
         session.add(rule)
         session.commit()
 
         log = AlertLog(
-            rule_id=rule.rule_id,
-            status="failed",
-            error_msg="Telegram API error: 429"
+            rule_id=rule.rule_id, status="failed", error_msg="Telegram API error: 429"
         )
         session.add(log)
         session.commit()
@@ -252,15 +238,12 @@ class TestAlertLogModel:
             trigger_config={},
             message_template="Test",
             target_chat_id=67890,
-            created_by=12345
+            created_by=12345,
         )
         session.add(rule)
         session.commit()
 
-        log = AlertLog(
-            rule_id=rule.rule_id,
-            status="invalid_status"
-        )
+        log = AlertLog(rule_id=rule.rule_id, status="invalid_status")
         session.add(log)
 
         with pytest.raises(Exception):  # CheckConstraint violation
@@ -268,10 +251,7 @@ class TestAlertLogModel:
 
     def test_alert_log_fk_constraint(self, session):
         """UT-040: Invalid rule_id raises FK error"""
-        log = AlertLog(
-            rule_id=99999,  # Non-existent rule
-            status="pending"
-        )
+        log = AlertLog(rule_id=99999, status="pending")  # Non-existent rule
         session.add(log)
 
         with pytest.raises(Exception):

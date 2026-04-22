@@ -1,4 +1,5 @@
 """Main bot entry point."""
+
 import asyncio
 import logging
 import os
@@ -43,12 +44,7 @@ def setup_bot() -> Application:
         raise ValueError("TELEGRAM_BOT_TOKEN not set")
 
     # Build application
-    app = (
-        Application.builder()
-        .token(bot_token)
-        .post_init(post_init)
-        .build()
-    )
+    app = Application.builder().token(bot_token).post_init(post_init).build()
 
     # Add command handlers
     for command, handler in COMMAND_HANDLERS.items():
