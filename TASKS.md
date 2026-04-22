@@ -398,7 +398,7 @@ Execute QA checklist from kickoff doc:
 | TASK-002 | ✅ DONE | Thomas |
 | TASK-003 | ✅ DONE | Thomas |
 | TASK-004 | ✅ DONE | Thomas |
-| TASK-005 | ⬜ TODO | Thomas |
+| TASK-005 | ✅ DONE | Thomas |
 | TASK-006 | ✅ DONE | Thomas |
 | TASK-007 | ✅ DONE | Thomas |
 | TASK-008 | ✅ DONE | Thomas |
