@@ -1,0 +1,60 @@
+# docker-compose.dev.yml
+# Local development environment for Goksu's QA testing
+# Usage: docker-compose -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src:ro        # Hot reload source
+      - ./config.py:/app/config.py:ro
+      - ./data:/app/data         # SQLite persistence
+    env_file:
+      - .env.dev
+    ports:
+      - "8000:8000"   # FastAPI
+      - "8080:8080"   # Webhook
+    profiles:
+      - dev
+    healthcheck:
+      test: ["CMD", "python", "-c", "import telegram"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Mock Telegram API for testing (no real bot token needed)
+  mock-telegram:
+    image: mockserver/mockserver:latest
+    ports:
+      - "1080:1080"
+    environment:
+      MOCKSERVER_INITIALIZATION_JSON: |
+        {
+          "request": {
+            "method": "POST",
+            "path": "/sendMessage"
+          },
+          "response": {
+            "statusCode": 200,
+            "body": "{ \"ok\": true, \"result\": { \"message_id\": 1 } }"
+          }
+        }
+    profiles:
+      - dev
+    depends_on:
+      - bot
+
+  # Localtunnel for webhook testing (GitHub webhooks → localhost)
+  localtunnel:
+    image: ghcr.io/localtunnel/localtunnel
+    ports:
+      - "9090:80"
+    environment:
+      LT_KEY: "${LT_KEY:-change-me-in-.env.dev}"
+    profiles:
+      - dev

@@ -1,47 +1,18 @@
-# SPDX-License-Identifier: MIT
-# Telegram Automation Bot — docker-compose.yml
+version: '3.8'
 
 services:
   bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: telegram-bot
-    ports:
-      - "8000:8000"   # FastAPI (health, stats, webhooks)
-      - "8080:8080"   # Webhook receiver
-    volumes:
-      - bot-data:/app/data
+    build: .
     env_file:
       - .env
-    environment:
-      - DATABASE_URL=sqlite+aiosqlite:///app/data/bot.db
     restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
-    networks:
-      - bot-network
-
-  # Optional: redis for queue/rate limiting (future)
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: telegram-bot-redis
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - redis-data:/data
-  #   restart: unless-stopped
-  #   networks:
-  #     - bot-network
-
-volumes:
-  bot-data:
-    driver: local
-
-networks:
-  bot-network:
-    driver: bridge
