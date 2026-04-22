@@ -399,9 +399,9 @@ Execute QA checklist from kickoff doc:
 | TASK-003 | ✅ DONE | Thomas |
 | TASK-004 | ✅ DONE | Thomas |
 | TASK-005 | ⬜ TODO | Thomas |
-| TASK-006 | ⬜ TODO | Thomas |
+| TASK-006 | ✅ DONE | Thomas |
 | TASK-007 | ✅ DONE | Thomas |
-| TASK-008 | ⬜ TODO | Thomas |
+| TASK-008 | ✅ DONE | Thomas |
 | TASK-009 | ✅ DONE | Goksu |
 | TASK-010 | ✅ DONE | Goksu |
 | TASK-011 | ⬜ TODO | Goksu |
