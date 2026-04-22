@@ -73,7 +73,7 @@ jobs:
         run: |
           curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"content": "❌ **Lint failed** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
+            -d '{"content": "❌ **Lint failed** — <@1493319059125571615> — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
 
       - name: Notify Discord on success
         if: success()
@@ -110,7 +110,7 @@ jobs:
         run: |
           curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"content": "❌ **Build failed** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
+            -d '{"content": "❌ **Build failed** — <@1493319059125571615> — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
 
       - name: Notify Discord on success
         if: success()
@@ -156,7 +156,7 @@ jobs:
         run: |
           curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"content": "❌ **Deploy failed** — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
+            -d '{"content": "❌ **Deploy failed** — <@1493319059125571615> — `'${{ github.repository }}` on `'${{ github.ref_name }}`"}'
 
       - name: Notify Discord on success
         if: success()
