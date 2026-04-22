@@ -1,0 +1,248 @@
+"""Telegram command handlers."""
+import logging
+from typing import Optional
+
+from telegram import Update
+from telegram.ext import ContextTypes
+
+from .database import get_session, session_context
+from .models import User, AlertRule, AlertLog
+from .config import get_settings
+
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /start command - register user."""
+    user_id = update.effective_user.id
+    username = update.effective_user.username or update.effective_user.first_name
+
+    async with session_context() as session:
+        # Check if user exists
+        result = await session.execute(
+            "SELECT user_id FROM users WHERE user_id = :user_id",
+            {"user_id": user_id}
+        )
+        existing = result.fetchone()
+
+        if existing:
+            await update.message.reply_text(
+                f"👋 Welcome back, {username}!\n\n"
+                "You're already registered. Use /help to see available commands."
+            )
+        else:
+            # Check if first user (make them admin)
+            result = await session.execute("SELECT COUNT(*) as cnt FROM users")
+            count = result.fetchone()[0]
+            is_admin = count == 0
+
+            new_user = User(
+                user_id=user_id,
+                username=username,
+                is_admin=is_admin,
+                is_active=True,
+            )
+            session.add(new_user)
+            await session.commit()
+
+            admin_note = " (you are the first admin!)" if is_admin else ""
+            await update.message.reply_text(
+                f"🎉 Welcome, {username}! You've been registered.{admin_note}\n\n"
+                "Use /help to see available commands."
+            )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /help command - show help."""
+    await update.message.reply_text(
+        "📚 *Available Commands:*\n\n"
+        "/start - Register with the bot\n"
+        "/help - Show this help message\n"
+        "/status - Show bot statistics\n"
+        "/ping - Check bot latency\n"
+        "/broadcast `<message>` - Send message to all users (admin only)\n"
+        "/alert `<action>` - Manage alert rules (admin only)\n\n"
+        "Use /alert add, /alert list, /alert delete `<id>`, "
+        "/alert enable `<id>`, /alert disable `<id>`",
+        parse_mode="Markdown",
+    )
+
+
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /status command - show bot statistics."""
+    async with session_context() as session:
+        # Get user stats
+        result = await session.execute("SELECT COUNT(*) as total, SUM(is_active) as active FROM users")
+        user_stats = result.fetchone()
+        total_users = user_stats[0] if user_stats else 0
+        active_users = user_stats[1] if user_stats[1] else 0
+
+        # Get alert rule stats
+        result = await session.execute(
+            "SELECT COUNT(*) as total, SUM(is_enabled) as enabled FROM alert_rules"
+        )
+        rule_stats = result.fetchone()
+        total_rules = rule_stats[0] if rule_stats else 0
+        enabled_rules = rule_stats[1] if rule_stats[1] else 0
+
+        # Get alert log stats
+        result = await session.execute(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed FROM alert_logs"
+        )
+        log_stats = result.fetchone()
+        total_alerts = log_stats[0] if log_stats else 0
+        alerts_failed = log_stats[1] if log_stats[1] else 0
+
+    await update.message.reply_text(
+        "📊 *Bot Statistics*\n\n"
+        f"👥 Users: {active_users}/{total_users} active\n"
+        f"🔔 Alert Rules: {enabled_rules}/{total_rules} enabled\n"
+        f"📨 Alerts Sent: {total_alerts} ({alerts_failed} failed)",
+        parse_mode="Markdown",
+    )
+
+
+async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /ping command - latency check."""
+    import time
+    start = time.time()
+    # Quick DB ping
+    async with session_context() as session:
+        await session.execute("SELECT 1")
+    latency = (time.time() - start) * 1000
+    await update.message.reply_text(f"🏓 Pong! DB latency: {latency:.1f}ms")
+
+
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /broadcast command - send message to all users (admin only)."""
+    user_id = update.effective_user.id
+
+    # Check admin
+    if user_id not in settings.admin_user_ids:
+        await update.message.reply_text("⛔ Unauthorized. Admin only.")
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /broadcast `<message>`")
+        return
+
+    message = " ".join(context.args)
+
+    async with session_context() as session:
+        result = await session.execute("SELECT user_id FROM users WHERE is_active = 1")
+        users = result.fetchall()
+        user_ids = [u[0] for u in users]
+
+    sent = 0
+    failed = 0
+    for uid in user_ids:
+        try:
+            await context.bot.send_message(chat_id=uid, text=message)
+            sent += 1
+        except Exception as e:
+            logger.error(f"Failed to send to {uid}: {e}")
+            failed += 1
+
+    await update.message.reply_text(
+        f"📢 Broadcast complete.\nSent: {sent}\nFailed: {failed}"
+    )
+
+
+async def alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /alert command - manage alert rules (admin only)."""
+    user_id = update.effective_user.id
+
+    # Check admin
+    if user_id not in settings.admin_user_ids:
+        await update.message.reply_text("⛔ Unauthorized. Admin only.")
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: /alert `<action>`\n"
+            "Actions: add, list, delete `<id>`, enable `<id>`, disable `<id>`"
+        )
+        return
+
+    action = context.args[0].lower()
+
+    if action == "list":
+        async with session_context() as session:
+            result = await session.execute(
+                "SELECT rule_id, name, trigger_type, is_enabled FROM alert_rules"
+            )
+            rules = result.fetchall()
+
+        if not rules:
+            await update.message.reply_text("No alert rules configured.")
+            return
+
+        lines = ["🔔 *Alert Rules:*\n"]
+        for r in rules:
+            status = "✅" if r[3] else "❌"
+            lines.append(f"{status} `[{r[0]}]` {r[1]} ({r[2]})")
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+    elif action == "add":
+        await update.message.reply_text(
+            "To add an alert rule, use the API or configure manually.\n"
+            "Usage: /alert add `<name>` `<trigger_type>` `<message_template>`\n"
+            "Example: /alert add \"GitHub Push\" event \"New push to {repo}\""
+        )
+
+    elif action == "delete":
+        if len(context.args) < 2:
+            await update.message.reply_text("Usage: /alert delete `<rule_id>`")
+            return
+        try:
+            rule_id = int(context.args[1])
+        except ValueError:
+            await update.message.reply_text("Invalid rule ID.")
+            return
+
+        async with session_context() as session:
+            await session.execute(
+                "DELETE FROM alert_rules WHERE rule_id = :rule_id",
+                {"rule_id": rule_id}
+            )
+            await session.commit()
+
+        await update.message.reply_text(f"🗑️ Alert rule {rule_id} deleted.")
+
+    elif action in ("enable", "disable"):
+        if len(context.args) < 2:
+            await update.message.reply_text(f"Usage: /alert {action} `<rule_id>`")
+            return
+        try:
+            rule_id = int(context.args[1])
+        except ValueError:
+            await update.message.reply_text("Invalid rule ID.")
+            return
+
+        new_state = action == "enable"
+        async with session_context() as session:
+            await session.execute(
+                "UPDATE alert_rules SET is_enabled = :state WHERE rule_id = :rule_id",
+                {"state": new_state, "rule_id": rule_id}
+            )
+            await session.commit()
+
+        state_str = "enabled" if new_state else "disabled"
+        await update.message.reply_text(f"✅ Alert rule {rule_id} {state_str}.")
+
+    else:
+        await update.message.reply_text(
+            "Unknown action. Use: add, list, delete, enable, disable"
+        )
+
+
+# Command registry for bot setup
+COMMAND_HANDLERS = {
+    "start": start_command,
+    "help": help_command,
+    "status": status_command,
+    "ping": ping_command,
+    "broadcast": broadcast_command,
+    "alert": alert_command,
+}
