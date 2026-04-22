@@ -1,57 +1,69 @@
-"""SQLAlchemy models for the bot database."""
-
+"""SQLAlchemy models for the Telegram Automation Bot."""
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from typing import Optional
 
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy.orm import relationship
 
-class Base(DeclarativeBase):
-    """Base class for all models."""
-
-    pass
+from .database import Base
 
 
 class User(Base):
-    """Registered bot user."""
+    """User model for registered bot users."""
 
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False, index=True)
-    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    registered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    user_id = Column(Integer, primary_key=True)
+    username = Column(String(255), unique=True, nullable=False)
+    is_admin = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    registered_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    alert_rules = relationship("AlertRule", back_populates="creator", foreign_keys="AlertRule.created_by")
+
+    def __repr__(self):
+        return f"<User(user_id={self.user_id}, username={self.username}, is_admin={self.is_admin})>"
 
 
 class AlertRule(Base):
-    """Alert rule configuration."""
+    """Alert rule model for configuring automated alerts."""
 
     __tablename__ = "alert_rules"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    trigger_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    trigger_config: Mapped[str] = mapped_column(Text, nullable=False)
-    action_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    action_config: Mapped[str] = mapped_column(Text, nullable=False)
-    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    rule_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(Text, nullable=False)
+    trigger_type = Column(String(20), nullable=False)  # 'cron', 'event', 'manual'
+    trigger_config = Column(JSON, nullable=False)
+    message_template = Column(Text, nullable=False)
+    target_chat_id = Column(Integer, nullable=False)
+    is_enabled = Column(Boolean, default=True)
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    creator = relationship("User", back_populates="alert_rules", foreign_keys=[created_by])
+    logs = relationship("AlertLog", back_populates="rule")
+
+    def __repr__(self):
+        return f"<AlertRule(rule_id={self.rule_id}, name={self.name}, trigger_type={self.trigger_type})>"
 
 
 class AlertLog(Base):
-    """Log of triggered alerts."""
+    """Alert log model for tracking alert executions."""
 
     __tablename__ = "alert_logs"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    rule_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-    triggered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # pending, sent, failed
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    log_id = Column(Integer, primary_key=True, autoincrement=True)
+    rule_id = Column(Integer, ForeignKey("alert_rules.rule_id"), nullable=False)
+    triggered_at = Column(DateTime, default=datetime.utcnow)
+    sent_at = Column(DateTime, nullable=True)
+    status = Column(String(20), nullable=False)  # 'pending', 'sent', 'failed'
+    error_msg = Column(Text, nullable=True)
+    payload = Column(JSON, nullable=True)
+
+    # Relationships
+    rule = relationship("AlertRule", back_populates="logs")
+
+    def __repr__(self):
+        return f"<AlertLog(log_id={self.log_id}, rule_id={self.rule_id}, status={self.status})>"

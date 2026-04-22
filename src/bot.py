@@ -1,61 +1,98 @@
 """Main bot entry point."""
-
+import asyncio
 import logging
+import os
+import signal
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-from config import settings
-from src import handlers as h
+from .config import get_settings
+from .database import init_db, close_db
+from .handlers import COMMAND_HANDLERS
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-def setup_logging() -> None:
-    """Configure logging for the application."""
-    logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        level=getattr(logging, settings.log_level, logging.INFO),
-    )
+# Global application reference
+app: Application | None = None
 
 
 async def post_init(application: Application) -> None:
-    """Run after bot initialization."""
-    await application.bot.set_my_commands([
-        ("start", "Start the bot and register"),
-        ("help", "Show available commands"),
-        ("status", "Show bot status and statistics"),
-        ("ping", "Check bot responsiveness"),
-        ("alert", "Manage alert rules"),
-    ])
+    """Post-initialization hook."""
+    await init_db()
+    logger.info("Database initialized")
 
 
-def create_app() -> Application:
-    """Create and configure the bot application."""
-    setup_logging()
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle errors."""
+    logger.error(f"Exception while handling an update: {context.error}")
 
+
+def setup_bot() -> Application:
+    """Set up and return the bot application."""
+    global app
+
+    settings = get_settings()
+    bot_token = settings.telegram_bot_token or os.getenv("TELEGRAM_BOT_TOKEN", "")
+
+    if not bot_token:
+        raise ValueError("TELEGRAM_BOT_TOKEN not set")
+
+    # Build application
     app = (
         Application.builder()
-        .token(settings.telegram_bot_token)
+        .token(bot_token)
         .post_init(post_init)
         .build()
     )
 
-    # Register command handlers
-    app.add_handler(CommandHandler("start", h.start))
-    app.add_handler(CommandHandler("help", h.help))
-    app.add_handler(CommandHandler("status", h.status))
-    app.add_handler(CommandHandler("ping", h.ping))
-    app.add_handler(CommandHandler("alert", h.alert))
-    app.add_handler(CommandHandler("broadcast", h.broadcast))
+    # Add command handlers
+    for command, handler in COMMAND_HANDLERS.items():
+        app.add_handler(CommandHandler(command, handler))
 
-    # Register error handler
-    app.add_error_handler(h.error_handler)
+    # Add error handler
+    app.add_error_handler(error_handler)
 
     return app
 
 
-def main() -> None:
+async def run_bot() -> None:
     """Run the bot."""
-    app = create_app()
-    app.run_polling()
+    application = setup_bot()
+
+    # Handle shutdown gracefully
+    loop = asyncio.get_event_loop()
+
+    def shutdown():
+        logger.info("Shutting down...")
+        asyncio.create_task(application.stop())
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, shutdown)
+
+    # Start polling
+    logger.info("Starting bot...")
+    await application.initialize()
+    await application.start()
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+    # Cleanup
+    await close_db()
+
+
+def main() -> None:
+    """Main entry point."""
+    try:
+        asyncio.run(run_bot())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    except Exception as e:
+        logger.error(f"Bot error: {e}")
+        raise
 
 
 if __name__ == "__main__":
