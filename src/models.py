@@ -18,6 +18,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     registered_at = Column(DateTime, default=datetime.utcnow)
+    last_seen_at = Column(DateTime, nullable=True)
 
     # Relationships
     alert_rules = relationship("AlertRule", back_populates="creator", foreign_keys="AlertRule.created_by")
