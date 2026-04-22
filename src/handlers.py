@@ -119,12 +119,14 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     user_id = update.effective_user.id
 
     # Check admin
-    if user_id not in settings.admin_user_ids:
+    if not settings.is_admin(user_id):
         await update.message.reply_text("⛔ Unauthorized. Admin only.")
         return
 
     if not context.args:
-        await update.message.reply_text("Usage: /broadcast `<message>`")
+        await update.message.reply_text(
+            "Usage: /broadcast `<message>`"
+        )
         return
 
     message = " ".join(context.args)
@@ -134,19 +136,35 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         users = result.fetchall()
         user_ids = [u[0] for u in users]
 
+    if not user_ids:
+        await update.message.reply_text("No active users to send to.")
+        return
+
+    await update.message.reply_text(f"📢 Sending to {len(user_ids)} users...")
+
     sent = 0
     failed = 0
+    rate_limited = []
     for uid in user_ids:
         try:
             await context.bot.send_message(chat_id=uid, text=message)
             sent += 1
+            # Simple rate limit mitigation
+            import asyncio
+            await asyncio.sleep(0.05)  # 50ms between messages
         except Exception as e:
             logger.error(f"Failed to send to {uid}: {e}")
+            # Check if rate limited (429)
+            if "429" in str(e) or "Too Many Requests" in str(e):
+                rate_limited.append(uid)
+                # Exponential backoff would go here in production
+                await asyncio.sleep(1)
             failed += 1
 
-    await update.message.reply_text(
-        f"📢 Broadcast complete.\nSent: {sent}\nFailed: {failed}"
-    )
+    status_msg = f"📢 Broadcast complete.\nSent: {sent}\nFailed: {failed}"
+    if rate_limited:
+        status_msg += f"\nRate limited: {len(rate_limited)}"
+    await update.message.reply_text(status_msg)
 
 
 async def alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -154,7 +172,7 @@ async def alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user_id = update.effective_user.id
 
     # Check admin
-    if user_id not in settings.admin_user_ids:
+    if not settings.is_admin(user_id):
         await update.message.reply_text("⛔ Unauthorized. Admin only.")
         return
 
