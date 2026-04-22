@@ -395,12 +395,12 @@ Execute QA checklist from kickoff doc:
 | Task | Status | Assignee |
 |-----|--------|----------|
 | TASK-001 | ✅ DONE | Thomas |
-| TASK-002 | ⬜ TODO | Thomas |
-| TASK-003 | ⬜ TODO | Thomas |
+| TASK-002 | ✅ DONE | Thomas |
+| TASK-003 | ✅ DONE | Thomas |
 | TASK-004 | ⬜ TODO | Thomas |
 | TASK-005 | ⬜ TODO | Thomas |
 | TASK-006 | ⬜ TODO | Thomas |
-| TASK-007 | ⬜ TODO | Thomas |
+| TASK-007 | ✅ DONE | Thomas |
 | TASK-008 | ⬜ TODO | Thomas |
 | TASK-009 | ✅ DONE | Goksu |
 | TASK-010 | ✅ DONE | Goksu |
@@ -409,9 +409,9 @@ Execute QA checklist from kickoff doc:
 | TASK-013 | ⬜ TODO | Elisa |
 | TASK-014 | ⬜ TODO | Elisa |
 | TASK-015 | ✅ DONE | Elisa |
-| TASK-016 | ⬜ TODO | Piotr |
-| TASK-017 | ⬜ TODO | Piotr |
-| TASK-018 | ⬜ TODO | Piotr |
+| TASK-016 | ✅ DONE | Piotr |
+| TASK-017 | ✅ DONE | Piotr |
+| TASK-018 | ✅ DONE | Elisa |
 
 ---
 
