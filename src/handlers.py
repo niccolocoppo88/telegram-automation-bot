@@ -203,11 +203,61 @@ async def alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
     elif action == "add":
+        # Usage: /alert add <name> <trigger_type> <target_chat_id> <message_template>
+        if len(context.args) < 4:
+            await update.message.reply_text(
+                "Usage: /alert add `<name>` `<trigger_type>` `<target_chat_id>` `<message_template>`\n\n"
+                "Example: /alert add \"My Alert\" event 123456 \"New push to {repo}\"\n\n"
+                "trigger_type: event, cron, or manual"
+            )
+            return
+
+        name = context.args[0]
+        trigger_type = context.args[1].lower()
+        try:
+            target_chat_id = int(context.args[2])
+        except ValueError:
+            await update.message.reply_text("Invalid target_chat_id. Must be a number.")
+            return
+        message_template = " ".join(context.args[3:])
+
+        # Validate trigger_type
+        if trigger_type not in ("event", "cron", "manual"):
+            await update.message.reply_text(
+                "Invalid trigger_type. Use: event, cron, or manual"
+            )
+            return
+
+        # Parse trigger_config based on type
+        if trigger_type == "event":
+            trigger_config = {"event": "push"}
+        elif trigger_type == "cron":
+            trigger_config = {"schedule": "0 9 * * *"}
+        else:
+            trigger_config = {}
+
+        async with session_context() as session:
+            new_rule = AlertRule(
+                name=name,
+                trigger_type=trigger_type,
+                trigger_config=trigger_config,
+                message_template=message_template,
+                target_chat_id=target_chat_id,
+                created_by=user_id,
+            )
+            session.add(new_rule)
+            await session.commit()
+            rule_id = new_rule.rule_id
+
         await update.message.reply_text(
-            "To add an alert rule, use the API or configure manually.\n"
-            "Usage: /alert add `<name>` `<trigger_type>` `<message_template>`\n"
-            "Example: /alert add \"GitHub Push\" event \"New push to {repo}\""
+            f"✅ Alert rule created!\n\n"
+            f"ID: {rule_id}\n"
+            f"Name: {name}\n"
+            f"Trigger: {trigger_type}\n"
+            f"Target: {target_chat_id}\n\n"
+            f"Edit via API or /alert list to manage"
         )
+
 
     elif action == "delete":
         if len(context.args) < 2:
