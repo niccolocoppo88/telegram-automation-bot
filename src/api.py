@@ -115,23 +115,62 @@ async def github_webhook(request: Request) -> JSONResponse:
         rules = [dict(zip(columns, row)) for row in rows]
 
     # Process each matching rule
+    import httpx
     for rule in rules:
         # Simple matching - check if event matches trigger_config
         config = rule.get("trigger_config", {})
         if config.get("event") != event:
             continue
 
+        # Render message template
+        template = rule.get("message_template", "Alert: {event}")
+        try:
+            message = template.format(
+                event=event,
+                repo=body.get("repository", {}).get("full_name", "unknown"),
+                action=body.get("action", ""),
+            )
+        except Exception:
+            message = f"Alert triggered: {event}"
+
+        # Send Telegram message
+        bot_token = settings.telegram_bot_token
+        target_chat_id = rule.get("target_chat_id")
+        log_entry = None
+
+        if bot_token and target_chat_id:
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(
+                        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                        json={"chat_id": target_chat_id, "text": message},
+                        timeout=10.0,
+                    )
+                    if resp.status_code == 200:
+                        log_status = "sent"
+                    else:
+                        log_status = "failed"
+                        logger.error(f"Telegram API error: {resp.status_code} - {resp.text}")
+            except Exception as e:
+                log_status = "failed"
+                logger.error(f"Failed to send Telegram message: {e}")
+        else:
+            log_status = "pending"  # No bot token configured
+
         # Create alert log
         async with session_context() as session:
             log = AlertLog(
                 rule_id=rule["rule_id"],
-                status="pending",
+                status=log_status,
                 payload={"event": event, "body": body},
             )
+            if log_status == "sent":
+                from datetime import datetime
+                log.sent_at = datetime.utcnow()
             session.add(log)
             await session.commit()
 
-        logger.info(f"Triggered alert rule: {rule['name']}")
+        logger.info(f"Triggered alert rule: {rule['name']} -> {log_status}")
 
     return JSONResponse(content={"status": "ok", "event": event})
 
