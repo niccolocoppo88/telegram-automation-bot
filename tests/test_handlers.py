@@ -39,16 +39,20 @@ async def test_start_command_new_user(mock_update, mock_context):
 
     with patch("src.handlers.session_context") as mock_session_ctx:
         mock_session = AsyncMock()
-        mock_result = AsyncMock()
-        mock_result.fetchone = MagicMock(return_value=None)
-        mock_session.execute = MagicMock(return_value=mock_result)
+        
+        # First call: check if user exists (returns None = user doesn't exist)
+        # Second call: count users (returns (0,) = first user)
+        mock_result1 = MagicMock()
+        mock_result1.fetchone = MagicMock(return_value=None)
+        mock_result2 = MagicMock()
+        mock_result2.fetchone = MagicMock(return_value=(0,))
+        
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_result1, mock_result2]
+        )
+        
         mock_session_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_ctx.return_value.__aexit__ = AsyncMock()
-
-        # Also patch the count query
-        mock_result2 = AsyncMock()
-        mock_result2.fetchone = MagicMock(return_value=(0,))
-        mock_session.execute = MagicMock(side_effect=[mock_result, mock_result2])
 
         await start_command(mock_update, mock_context)
 

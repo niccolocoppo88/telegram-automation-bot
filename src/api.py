@@ -26,10 +26,49 @@ start_time = time.time()
 @app.get("/health")
 async def health_check() -> JSONResponse:
     """Health check endpoint."""
+    import psutil
+    import httpx
+
+    # Memory usage
+    memory_mb = psutil.Process().memory_info().rss / 1024 / 1024
+
+    # DB connectivity check
+    db_ok = True
+    try:
+        async with session_context() as session:
+            await session.execute("SELECT 1")
+    except Exception:
+        db_ok = False
+
+    # Telegram API latency
+    from .config import get_settings
+    settings = get_settings()
+    latency_ms = None
+    if settings.telegram_bot_token:
+        try:
+            async with httpx.AsyncClient() as client:
+                start = time.time()
+                await client.get(
+                    f"https://api.telegram.org/bot{settings.telegram_bot_token}/getMe",
+                    timeout=5.0,
+                )
+                latency_ms = int((time.time() - start) * 1000)
+        except Exception:
+            latency_ms = None
+
+    # Determine status
+    status = "healthy" if db_ok else "degraded"
+    if latency_ms and latency_ms > 500:
+        status = "degraded"
+
     return JSONResponse(
+        status_code=200 if status == "healthy" else 503,
         content={
-            "status": "healthy",
+            "status": status,
             "uptime_seconds": int(time.time() - start_time),
+            "memory_mb": round(memory_mb, 1),
+            "db_ok": db_ok,
+            "latency_ms": latency_ms,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
     )
@@ -58,11 +97,18 @@ async def get_stats() -> JSONResponse:
         # Alert log stats
         result = await session.execute(
             "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent, "
-            "SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed FROM alert_logs"
+            "SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed, "
+            "MAX(sent_at) as last_alert_at FROM alert_logs"
         )
         row = result.fetchone()
+        total_alerts = row[0] if row[0] else 0
         alerts_sent = row[1] if row[1] else 0
         alerts_failed = row[2] if row[2] else 0
+        last_alert_at = row[3] if row[3] else None
+
+    # Calculate error rate and delivery success
+    error_rate = round((alerts_failed / total_alerts * 100), 2) if total_alerts > 0 else 0.0
+    delivery_success_rate = round((alerts_sent / total_alerts * 100), 2) if total_alerts > 0 else 0.0
 
     return JSONResponse(
         content={
@@ -72,6 +118,9 @@ async def get_stats() -> JSONResponse:
             "enabled_rules": enabled_rules,
             "total_alerts_sent": alerts_sent,
             "alerts_failed": alerts_failed,
+            "error_rate": error_rate,
+            "delivery_success_rate": delivery_success_rate,
+            "last_alert_at": last_alert_at.isoformat() if last_alert_at else None,
         }
     )
 

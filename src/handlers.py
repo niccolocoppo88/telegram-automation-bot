@@ -70,30 +70,40 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /status command - show bot statistics."""
+    total_users = 0
+    active_users = 0
+    total_rules = 0
+    enabled_rules = 0
+    total_alerts = 0
+    alerts_failed = 0
+
     async with session_context() as session:
         # Get user stats
         result = await session.execute(
-            "SELECT COUNT(*) as total, SUM(is_active) as active FROM users"
+            "SELECT COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active FROM users"
         )
-        user_stats = result.fetchone()
-        total_users = user_stats[0] if user_stats else 0
-        active_users = user_stats[1] if user_stats[1] else 0
+        row = result.fetchone()
+        if row:
+            total_users = row[0] or 0
+            active_users = row[1] or 0
 
         # Get alert rule stats
         result = await session.execute(
-            "SELECT COUNT(*) as total, SUM(is_enabled) as enabled FROM alert_rules"
+            "SELECT COUNT(*) as total, SUM(CASE WHEN is_enabled = 1 THEN 1 ELSE 0 END) as enabled FROM alert_rules"
         )
-        rule_stats = result.fetchone()
-        total_rules = rule_stats[0] if rule_stats else 0
-        enabled_rules = rule_stats[1] if rule_stats[1] else 0
+        row = result.fetchone()
+        if row:
+            total_rules = row[0] or 0
+            enabled_rules = row[1] or 0
 
         # Get alert log stats
         result = await session.execute(
             "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed FROM alert_logs"
         )
-        log_stats = result.fetchone()
-        total_alerts = log_stats[0] if log_stats else 0
-        alerts_failed = log_stats[1] if log_stats[1] else 0
+        row = result.fetchone()
+        if row:
+            total_alerts = row[0] or 0
+            alerts_failed = row[1] or 0
 
     await update.message.reply_text(
         "📊 *Bot Statistics*\n\n"
