@@ -42,6 +42,7 @@ async def health_check() -> JSONResponse:
 
     # Telegram API latency
     from .config import get_settings
+
     settings = get_settings()
     latency_ms = None
     if settings.telegram_bot_token:
@@ -70,7 +71,7 @@ async def health_check() -> JSONResponse:
             "db_ok": db_ok,
             "latency_ms": latency_ms,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        }
+        },
     )
 
 
@@ -107,8 +108,12 @@ async def get_stats() -> JSONResponse:
         last_alert_at = row[3] if row[3] else None
 
     # Calculate error rate and delivery success
-    error_rate = round((alerts_failed / total_alerts * 100), 2) if total_alerts > 0 else 0.0
-    delivery_success_rate = round((alerts_sent / total_alerts * 100), 2) if total_alerts > 0 else 0.0
+    error_rate = (
+        round((alerts_failed / total_alerts * 100), 2) if total_alerts > 0 else 0.0
+    )
+    delivery_success_rate = (
+        round((alerts_sent / total_alerts * 100), 2) if total_alerts > 0 else 0.0
+    )
 
     return JSONResponse(
         content={
